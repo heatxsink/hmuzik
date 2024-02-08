@@ -1,3 +1,32 @@
+# hmuzik
+
+## Description
+
+I grew tired of making directorie, and subsequently moving files around. I remembered Brian Hatfield's Step 3: Automate everything.
+
+Thus.
+
+I needed a process that I can throw at a directory of well tagged audio files and have it create '%Artist%/%Album%' directory structure.
+
+
+## Asumptions
+
+1. I have only tested this on Linux, this should work on macOS (famous last words).
+1. Using Go 1.22.0.
+1. Contents of '--source' path has music files that are well tagged.
+
+## Example Usage 
+
+    $ hmuzik organize -s /home/ngranado/Music/lz -d /home/ngranado/Music/lz/organized 
+
+
+### Collaboration
+
+Pull requests are welcome, so are github issues.
+
+
+### License
+
 MIT License
 
 Copyright (c) 2024 Nick Granado
