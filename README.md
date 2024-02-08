@@ -2,30 +2,31 @@
 
 ## Description
 
-I grew tired of making directorie, and subsequently moving files around. I remembered Brian Hatfield's Step 3: Automate everything.
+I grew tired of making directories, and moving files around. I then remembered Brian Hatfield's Step 3: Automate everything.
 
-Thus.
+Thus...
 
-I needed a process that I can throw at a directory of well tagged audio files and have it create '%Artist%/%Album%' directory structure.
+I required a process that can be thrown at a directory of well tagged audio files, and have it organize/create a '%Artist%/%Album%' directory structure.
 
 
-## Asumptions
+## Assumptions
 
 1. I have only tested this on Linux, this should work on macOS (famous last words).
 1. Using Go 1.22.0.
 1. Contents of '--source' path has music files that are well tagged.
+
 
 ## Example Usage 
 
     $ hmuzik organize -s /home/ngranado/Music/lz -d /home/ngranado/Music/lz/organized 
 
 
-### Collaboration
+## Collaboration
 
 Pull requests are welcome, so are github issues.
 
 
-### License
+## License
 
 MIT License
 

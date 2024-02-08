@@ -16,6 +16,20 @@ var (
 	destinationPathOption string
 )
 
+func isAudioFile(filename string) bool {
+	normalize := strings.ToLower(filename)
+	if strings.HasSuffix(normalize, ".flac") {
+		return true
+	} else if strings.HasSuffix(normalize, ".mp3") {
+		return true
+	} else if strings.HasSuffix(normalize, ".m4a") {
+		return true
+	} else if strings.HasSuffix(normalize, ".aiff") {
+		return true
+	}
+	return false
+}
+
 func main() {
 	rootCmd := &cobra.Command{
 		Use:   name,
@@ -36,38 +50,39 @@ func main() {
 				if err != nil {
 					return err
 				}
-				if !info.IsDir() {
-					f, err := os.Open(path)
-					if err != nil {
-						return err
-					}
-					defer f.Close()
-					m, err := tag.ReadFrom(f)
-					if err != nil {
-						return err
-					}
-					artist := "No Name"
-					if strings.TrimSpace(m.AlbumArtist()) != "" {
-						artist = m.AlbumArtist()
-					} else if strings.TrimSpace(m.Artist()) != "" {
-						artist = m.Artist()
-					}
-					album := "No Name"
-					if strings.TrimSpace(m.Album()) != "" {
-						album = m.Album()
-					}
-					d := fmt.Sprintf("%s/%s/%s", destinationPathOption, artist, album)
-					err = os.MkdirAll(d, 0777)
-					if err != nil {
-						return err
-					}
-					filename := strings.TrimPrefix(path, sourcePathOption)
-					newPath := fmt.Sprintf("%s/%s", d, filename)
-					fmt.Println(path, "\n\t->", newPath)
-					err = os.Rename(path, newPath)
-					if err != nil {
-						return err
-					}
+				if info.IsDir() {
+					return nil
+				}
+				if !isAudioFile(info.Name()) {
+					return nil
+				}
+				f, err := os.Open(path)
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+				m, err := tag.ReadFrom(f)
+				if err != nil {
+					return err
+				}
+				artist := "No Name"
+				if strings.TrimSpace(m.AlbumArtist()) != "" {
+					artist = m.AlbumArtist()
+				} else if strings.TrimSpace(m.Artist()) != "" {
+					artist = m.Artist()
+				}
+				album := "No Name"
+				if strings.TrimSpace(m.Album()) != "" {
+					album = m.Album()
+				}
+				d := fmt.Sprintf("%s/%s/%s", destinationPathOption, artist, album)
+				if err := os.MkdirAll(d, 0777); err != nil {
+					return err
+				}
+				destPath := fmt.Sprintf("%s/%s", d, info.Name())
+				fmt.Println(path, "\n\t->", destPath)
+				if err := os.Rename(path, destPath); err != nil {
+					return err
 				}
 				return nil
 			})
