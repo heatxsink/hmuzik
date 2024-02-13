@@ -12,6 +12,7 @@ import (
 
 var (
 	name                  = "hmuzik"
+	dryRunFlagOption      bool
 	sourcePathOption      string
 	destinationPathOption string
 )
@@ -80,7 +81,11 @@ func main() {
 					return err
 				}
 				destPath := fmt.Sprintf("%s/%s", d, info.Name())
-				fmt.Println(path, "\n\t->", destPath)
+				fmt.Println("source:", path)
+				fmt.Println("\t ->", destPath)
+				if dryRunFlagOption {
+					return nil
+				}
 				if err := os.Rename(path, destPath); err != nil {
 					return err
 				}
@@ -94,6 +99,7 @@ func main() {
 		},
 	}
 	rootCmd.AddCommand(organizeCmd)
+	rootCmd.PersistentFlags().BoolVarP(&dryRunFlagOption, "dryrun", "r", false, "dryrun option")
 	rootCmd.PersistentFlags().StringVarP(&sourcePathOption, "source", "s", "", "source path with music files")
 	rootCmd.PersistentFlags().StringVarP(&destinationPathOption, "destination", "d", "", "destination path for organized music")
 	rootCmd.MarkFlagRequired("source")
