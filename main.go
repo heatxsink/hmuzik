@@ -31,6 +31,16 @@ func isAudioFile(filename string) bool {
 	return false
 }
 
+func normalize(s string) string {
+	n := strings.ReplaceAll(s, ".", "")
+	n = strings.ReplaceAll(n, "/", "")
+	n = strings.ReplaceAll(n, "#", "")
+	n = strings.ReplaceAll(n, ":", "")
+	n = strings.ReplaceAll(n, "  ", " ")
+	n = strings.TrimSpace(n)
+	return n
+}
+
 func main() {
 	rootCmd := &cobra.Command{
 		Use:   name,
@@ -57,6 +67,9 @@ func main() {
 				if !isAudioFile(info.Name()) {
 					return nil
 				}
+				if info.Size() == 0 {
+					return nil
+				}
 				f, err := os.Open(path)
 				if err != nil {
 					return err
@@ -68,13 +81,13 @@ func main() {
 				}
 				artist := "No Name"
 				if strings.TrimSpace(m.AlbumArtist()) != "" {
-					artist = m.AlbumArtist()
+					artist = normalize(m.AlbumArtist())
 				} else if strings.TrimSpace(m.Artist()) != "" {
-					artist = m.Artist()
+					artist = normalize(m.Artist())
 				}
 				album := "No Name"
 				if strings.TrimSpace(m.Album()) != "" {
-					album = m.Album()
+					album = normalize(m.Album())
 				}
 				d := fmt.Sprintf("%s/%s/%s", destinationPathOption, artist, album)
 				if err := os.MkdirAll(d, 0777); err != nil {
