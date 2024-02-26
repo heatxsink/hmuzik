@@ -165,33 +165,34 @@ func main() {
 				}
 				defer f.Close()
 				m, err := tag.ReadFrom(f)
-				if err == nil {
-					artist := "No Name"
-					if strings.TrimSpace(m.AlbumArtist()) != "" {
-						artist = normalize(m.AlbumArtist())
-					} else if strings.TrimSpace(m.Artist()) != "" {
-						artist = normalize(m.Artist())
-					}
-					album := "No Name"
-					if strings.TrimSpace(m.Album()) != "" {
-						album = normalize(m.Album())
-					}
-					d := fmt.Sprintf("%s/%s/%s", destinationPathOption, artist, album)
-					if err := os.MkdirAll(d, 0777); err != nil {
-						return err
-					}
-					destPath := fmt.Sprintf("%s/%s", d, info.Name())
-					fmt.Println("source:", path)
-					fmt.Println("\t ->", destPath)
-					if dryRunFlagOption {
-						return nil
-					}
-					if err := os.Rename(path, destPath); err != nil {
-						return err
-					}
+				if err != nil {
+					fmt.Println(err, "-->", info.Name())
 					return nil
 				}
-				return err
+				artist := "No Name"
+				if strings.TrimSpace(m.AlbumArtist()) != "" {
+					artist = normalize(m.AlbumArtist())
+				} else if strings.TrimSpace(m.Artist()) != "" {
+					artist = normalize(m.Artist())
+				}
+				album := "No Name"
+				if strings.TrimSpace(m.Album()) != "" {
+					album = normalize(m.Album())
+				}
+				d := fmt.Sprintf("%s/%s/%s", destinationPathOption, artist, album)
+				if err := os.MkdirAll(d, 0777); err != nil {
+					return err
+				}
+				destPath := fmt.Sprintf("%s/%s", d, info.Name())
+				fmt.Println("source:", path)
+				fmt.Println("\t ->", destPath)
+				if dryRunFlagOption {
+					return nil
+				}
+				if err := os.Rename(path, destPath); err != nil {
+					return err
+				}
+				return nil
 			})
 			if err != nil {
 				return err
