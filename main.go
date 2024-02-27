@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"text/template"
 
 	"github.com/dhowden/tag"
+	"github.com/heatxsink/hmuzik/m3u"
 	"github.com/spf13/cobra"
 )
 
@@ -45,42 +45,6 @@ func normalize(s string) string {
 	return n
 }
 
-type track struct {
-	Path   string
-	Artist string
-	Title  string
-	Length int
-}
-
-type playlist struct {
-	Path   string
-	Title  string
-	Tracks []*track
-}
-
-var m3uTemplate = `#EXTM3U
-#EXTENC:UTF-8
-#PLAYLIST:{{ .Title }}
-{{- range .Tracks }}
-#EXTINF:{{ .Length }},{{ .Artist }} - {{ .Title }}
-{{ .Path }}
-{{- end }}
-`
-
-func createPlaylist(pl *playlist) error {
-	m3u := template.New("m3u")
-	m3u, err := m3u.Parse(m3uTemplate)
-	if err != nil {
-		return err
-	}
-	fh, err := os.Create(pl.Path)
-	if err != nil {
-		return err
-	}
-	defer fh.Close()
-	return m3u.Execute(fh, pl)
-}
-
 func main() {
 	rootCmd := &cobra.Command{
 		Use:   name,
@@ -97,7 +61,7 @@ func main() {
 				return err
 			}
 			lines := strings.Split(string(data), "\n")
-			tracks := []*track{}
+			tracks := []*m3u.Track{}
 			for _, line := range lines {
 				if line == "" {
 					continue
@@ -113,7 +77,7 @@ func main() {
 				}
 				scrubPrefix := args[1]
 				path := strings.TrimPrefix(line, scrubPrefix)
-				track := &track{
+				track := &m3u.Track{
 					Path:   path,
 					Artist: m.Artist(),
 					Title:  m.Title(),
@@ -121,17 +85,15 @@ func main() {
 				}
 				tracks = append(tracks, track)
 			}
-			m3uPath := strings.TrimSuffix(playlistPath, filepath.Ext(playlistPath))
-			pl := &playlist{
-				Path:   m3uPath + ".m3u",
-				Title:  filepath.Base(m3uPath),
+			pl := &m3u.Playlist{
+				Title:  m3u.NormalizeTitle(playlistPath),
 				Tracks: tracks,
 			}
-			err = createPlaylist(pl)
-			if err != nil {
+			m3uPath := m3u.GleanFilename(playlistPath)
+			if err := pl.ToFile(m3uPath); err != nil {
 				return err
 			}
-			fmt.Println(m3uPath+".m3u", "has been created")
+			fmt.Println(m3uPath, "has been created")
 			return nil
 		},
 	}
