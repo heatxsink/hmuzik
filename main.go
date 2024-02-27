@@ -50,8 +50,8 @@ func main() {
 		Use:   name,
 		Short: "",
 	}
-	playlistCmd := &cobra.Command{
-		Use:   "m3u",
+	cmus2m3uCmd := &cobra.Command{
+		Use:   "cmus2m3u",
 		Short: "Convert exported cmus playlist to extended m3u.",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -163,7 +163,7 @@ func main() {
 			return nil
 		},
 	}
-	rootCmd.AddCommand(organizeCmd, playlistCmd)
+	rootCmd.AddCommand(organizeCmd, cmus2m3uCmd)
 	rootCmd.PersistentFlags().BoolVarP(&dryRunFlagOption, "dryrun", "r", false, "dryrun option")
 	rootCmd.PersistentFlags().StringVarP(&sourcePathOption, "source", "s", "", "source path with music files")
 	rootCmd.PersistentFlags().StringVarP(&destinationPathOption, "destination", "d", "", "destination path for organized music")
