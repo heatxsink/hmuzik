@@ -8,6 +8,8 @@ Thus...
 
 I required a process that can be thrown at a directory of well tagged audio files, and have it organize/create a '%Artist%/%Album%' directory structure.
 
+I've also added the ability to generate a m3u playlist from a cmus playlist.
+
 
 ## Assumptions
 
@@ -17,9 +19,11 @@ I required a process that can be thrown at a directory of well tagged audio file
 
 
 ## Example Usage 
-
+    
     $ hmuzik organize -s /home/ngranado/Music/lz -d /home/ngranado/Music/lz/organized 
-
+    
+    $ hmuzik cmus2m3u /home/ngranado/Music/Playlists/ambient-skool.txt /home/ngranado 
+    
 
 ## Collaboration
 
