@@ -50,50 +50,48 @@ func main() {
 		Use:   name,
 		Short: "",
 	}
-	cmus2m3uCmd := &cobra.Command{
-		Use:   "cmus2m3u",
-		Short: "Convert exported cmus playlist to extended m3u.",
+	playlistsCmd := &cobra.Command{
+		Use:   "playlists",
+		Short: "Convert all cmus playlists to extended m3u in.",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			playlistPath := args[0]
-			data, err := os.ReadFile(playlistPath)
+			cmusConfigPlaylistPath := fmt.Sprintf("%s/.config/cmus/playlists/", os.Getenv("HOME"))
+			outputPath := args[0]
+			scrubPrefix := args[1]
+			fmt.Println("Searching:", cmusConfigPlaylistPath)
+			err := filepath.Walk(cmusConfigPlaylistPath, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if info.IsDir() {
+					return nil
+				}
+				if err := m3u.CreateFromCmusPlaylist(path, outputPath, scrubPrefix); err != nil {
+					return err
+				}
+				filename := m3u.Filename(path, outputPath)
+				fmt.Println(filename, "has been created")
+				return nil
+			})
 			if err != nil {
 				return err
 			}
-			lines := strings.Split(string(data), "\n")
-			tracks := []*m3u.Track{}
-			for _, line := range lines {
-				if line == "" {
-					continue
-				}
-				f, err := os.Open(line)
-				if err != nil {
-					return err
-				}
-				defer f.Close()
-				m, err := tag.ReadFrom(f)
-				if err != nil {
-					return err
-				}
-				scrubPrefix := args[1]
-				path := strings.TrimPrefix(line, scrubPrefix)
-				track := &m3u.Track{
-					Path:   path,
-					Artist: m.Artist(),
-					Title:  m.Title(),
-					Length: -1,
-				}
-				tracks = append(tracks, track)
-			}
-			pl := &m3u.Playlist{
-				Title:  m3u.NormalizeTitle(playlistPath),
-				Tracks: tracks,
-			}
-			m3uPath := m3u.GleanFilename(playlistPath)
-			if err := pl.ToFile(m3uPath); err != nil {
+			return nil
+		},
+	}
+	m3uCmd := &cobra.Command{
+		Use:   "m3u",
+		Short: "Convert cmus playlist to extended m3u.",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmusPlaylistPath := args[0]
+			scrubPrefix := args[1]
+			outputPath := filepath.Dir(cmusPlaylistPath)
+			if err := m3u.CreateFromCmusPlaylist(cmusPlaylistPath, outputPath, scrubPrefix); err != nil {
 				return err
 			}
-			fmt.Println(m3uPath, "has been created")
+			filename := m3u.Filename(cmusPlaylistPath, outputPath)
+			fmt.Println(filename, "has been created")
 			return nil
 		},
 	}
@@ -163,7 +161,7 @@ func main() {
 			return nil
 		},
 	}
-	rootCmd.AddCommand(organizeCmd, cmus2m3uCmd)
+	rootCmd.AddCommand(organizeCmd, m3uCmd, playlistsCmd)
 	rootCmd.PersistentFlags().BoolVarP(&dryRunFlagOption, "dryrun", "r", false, "dryrun option")
 	rootCmd.PersistentFlags().StringVarP(&sourcePathOption, "source", "s", "", "source path with music files")
 	rootCmd.PersistentFlags().StringVarP(&destinationPathOption, "destination", "d", "", "destination path for organized music")
