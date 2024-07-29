@@ -38,6 +38,7 @@ func normalize(s string) string {
 	n = strings.ReplaceAll(n, "#", "")
 	n = strings.ReplaceAll(n, ":", "")
 	n = strings.ReplaceAll(n, "?", "")
+	n = strings.ReplaceAll(n, "!", "")
 	n = strings.ReplaceAll(n, "'", "")
 	n = strings.ReplaceAll(n, "\"", "")
 	n = strings.ReplaceAll(n, "  ", " ")
@@ -69,8 +70,7 @@ func main() {
 				if err := m3u.CreateFromCmusPlaylist(path, outputPath, scrubPrefix); err != nil {
 					return err
 				}
-				filename := m3u.Filename(path, outputPath)
-				fmt.Println(filename, "has been created")
+				fmt.Println(filepath.Base(m3u.Filename(path, outputPath)))
 				return nil
 			})
 			if err != nil {
