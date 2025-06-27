@@ -40,6 +40,9 @@ func normalize(s string) string {
 	n = strings.ReplaceAll(n, "?", "")
 	n = strings.ReplaceAll(n, "'", "")
 	n = strings.ReplaceAll(n, "\"", "")
+	n = strings.ReplaceAll(n, "|", "")
+	n = strings.ReplaceAll(n, ">", "")
+	n = strings.ReplaceAll(n, "<", "")
 	n = strings.ReplaceAll(n, "  ", " ")
 	n = strings.TrimSpace(n)
 	return n
