@@ -18,12 +18,27 @@ I've also added the ability to generate a m3u playlist from a cmus playlist.
 1. Contents of '--source' path has music files that are well tagged.
 
 
-## Example Usage 
-    
-    $ hmuzik organize -s /home/ngranado/Music/lz -d /home/ngranado/Music/lz/organized 
-    
-    $ hmuzik cmus2m3u /home/ngranado/Music/Playlists/ambient-skool.txt /home/ngranado 
-    
+## Example Usage
+
+Organize a directory of audio files into `%Artist%/%Album%/`:
+
+    $ hmuzik organize -s /home/ngranado/Music/lz -d /home/ngranado/Music/lz/organized
+
+Convert a single cmus playlist to extended m3u:
+
+    $ hmuzik m3u /home/ngranado/.config/cmus/playlists/ambient-skool /home/ngranado
+
+Convert every cmus playlist under `~/.config/cmus/playlists/` to extended m3u:
+
+    $ hmuzik playlists /home/ngranado/Music/Playlists /home/ngranado
+
+
+## Layout
+
+    cmd/            cobra subcommands (root, organize, m3u, playlists)
+    internal/m3u/   m3u playlist generation
+    main.go         entry point
+
 
 ## Collaboration
 
@@ -32,7 +47,7 @@ Pull requests are welcome, so are github issues.
 
 ## License
 
-Copyright 2024 Nick Granado <ngranado@gmail.com>
+Copyright 2026 Nick Granado <ngranado@gmail.com>
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
