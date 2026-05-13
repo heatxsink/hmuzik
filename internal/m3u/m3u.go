@@ -70,7 +70,6 @@ func CreateFromCmusPlaylist(cmusPlaylistPath string, outputPath string, prefix s
 			fmt.Println(err)
 			continue
 		}
-		defer f.Close()
 		track := &Track{
 			Path:   strings.TrimPrefix(line, prefix),
 			Info:   "",
@@ -83,6 +82,7 @@ func CreateFromCmusPlaylist(cmusPlaylistPath string, outputPath string, prefix s
 		} else {
 			track.Info = fmt.Sprintf("%s - %s", m.Artist(), m.Title())
 		}
+		_ = f.Close()
 		tracks = append(tracks, track)
 	}
 	pl := &Playlist{

@@ -16,14 +16,8 @@ var (
 )
 
 func isAudioFile(filename string) bool {
-	normalize := strings.ToLower(filename)
-	if strings.HasSuffix(normalize, ".flac") {
-		return true
-	} else if strings.HasSuffix(normalize, ".mp3") {
-		return true
-	} else if strings.HasSuffix(normalize, ".m4a") {
-		return true
-	} else if strings.HasSuffix(normalize, ".aiff") {
+	switch strings.ToLower(filepath.Ext(filename)) {
+	case ".flac", ".mp3", ".m4a", ".aiff":
 		return true
 	}
 	return false
@@ -48,7 +42,7 @@ func normalize(s string) string {
 
 var organizeCmd = &cobra.Command{
 	Use:   "organize",
-	Short: "Organize a directory path of desparate music files.",
+	Short: "Organize a directory path of desperate music files.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if sourcePathOption == "" {
 			return fmt.Errorf("missing 'source' option")
