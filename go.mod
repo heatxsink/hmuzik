@@ -1,6 +1,8 @@
 module github.com/heatxsink/hmuzik
 
-go 1.21.6
+go 1.26
+
+toolchain go1.26.2
 
 require (
 	github.com/dhowden/tag v0.0.0-20240122214204-713ab0e94639

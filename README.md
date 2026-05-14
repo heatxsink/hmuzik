@@ -14,7 +14,7 @@ I've also added the ability to generate a m3u playlist from a cmus playlist.
 ## Assumptions
 
 1. I have only tested this on Linux, this should work on macOS (famous last words).
-1. Using Go 1.22.0.
+1. Using Go 1.26.
 1. Contents of '--source' path has music files that are well tagged.
 
 
