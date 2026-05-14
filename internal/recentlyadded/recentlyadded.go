@@ -6,7 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -41,6 +41,9 @@ func isAudioFile(filename string) bool {
 // cost scales with recent activity rather than library size. Errors on
 // individual files are logged to stderr and the walk continues.
 func Scan(root string, since time.Time) ([]*Track, error) {
+	if _, err := os.Stat(root); err != nil {
+		return nil, fmt.Errorf("source %s: %w", root, err)
+	}
 	tracks := []*Track{}
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -116,15 +119,14 @@ func GroupByAlbum(tracks []*Track) []*Album {
 	}
 	albums := make([]*Album, 0, len(byKey))
 	for _, a := range byKey {
-		sort.SliceStable(a.Tracks, func(i, j int) bool {
-			ti, tj := a.Tracks[i], a.Tracks[j]
+		slices.SortStableFunc(a.Tracks, func(ti, tj *Track) int {
 			if ti.Disc != tj.Disc {
-				return ti.Disc < tj.Disc
+				return ti.Disc - tj.Disc
 			}
 			if ti.Track != tj.Track {
-				return ti.Track < tj.Track
+				return ti.Track - tj.Track
 			}
-			return ti.Path < tj.Path
+			return strings.Compare(ti.Path, tj.Path)
 		})
 		albums = append(albums, a)
 	}
@@ -160,11 +162,14 @@ func Playlist(albums []*Album, window time.Duration, now time.Time) []string {
 			entries = append(entries, entry{album: a, tracks: kept})
 		}
 	}
-	sort.SliceStable(entries, func(i, j int) bool {
-		if !entries[i].album.LatestCtime.Equal(entries[j].album.LatestCtime) {
-			return entries[i].album.LatestCtime.After(entries[j].album.LatestCtime)
+	slices.SortStableFunc(entries, func(a, b entry) int {
+		if !a.album.LatestCtime.Equal(b.album.LatestCtime) {
+			if a.album.LatestCtime.After(b.album.LatestCtime) {
+				return -1
+			}
+			return 1
 		}
-		return entries[i].album.Key < entries[j].album.Key
+		return strings.Compare(a.album.Key, b.album.Key)
 	})
 	total := 0
 	for _, e := range entries {

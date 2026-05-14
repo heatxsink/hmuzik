@@ -41,6 +41,11 @@ var recentlyAddedCmd = &cobra.Command{
 		now := time.Now()
 		since := now.Add(-time.Duration(maxDays) * 24 * time.Hour)
 
+		if !recentlyAddedDryRunOption {
+			if err := os.MkdirAll(output, 0755); err != nil {
+				return fmt.Errorf("mkdir %s: %w", output, err)
+			}
+		}
 		fmt.Println("Scanning:", source)
 		tracks, err := recentlyadded.Scan(source, since)
 		if err != nil {
