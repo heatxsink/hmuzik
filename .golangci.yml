@@ -7,6 +7,8 @@ run:
 
 linters:
   enable:
+    - errcheck
+    - errorlint
     - gocritic
     - misspell
     - prealloc
@@ -23,7 +25,6 @@ linters:
       - comments
       - common-false-positives
       - legacy
-      - std-error-handling
     paths:
       - testdata
       - third_party$

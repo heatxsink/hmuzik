@@ -41,7 +41,7 @@ func (pl *Playlist) ToFile(path string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	return m3u.Execute(f, pl)
 }
 

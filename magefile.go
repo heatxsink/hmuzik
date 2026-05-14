@@ -18,7 +18,7 @@ func init() {
 }
 
 func Clean() {
-	os.RemoveAll(name)
+	_ = os.RemoveAll(name)
 }
 
 func Vet() error {
