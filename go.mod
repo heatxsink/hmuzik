@@ -4,6 +4,7 @@ go 1.21.6
 
 require (
 	github.com/dhowden/tag v0.0.0-20240122214204-713ab0e94639
+	github.com/magefile/mage v1.17.0
 	github.com/spf13/cobra v1.8.0
 )
 

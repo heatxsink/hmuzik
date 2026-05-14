@@ -21,3 +21,6 @@
 go.work
 
 hmuzik
+
+# Local design notes, scratch docs — not for the repo.
+docs/
