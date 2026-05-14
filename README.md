@@ -32,12 +32,24 @@ Convert every cmus playlist under `~/.config/cmus/playlists/` to extended m3u:
 
     $ hmuzik playlists /home/ngranado/Music/Playlists /home/ngranado
 
+Generate "recently added" cmus playlists, grouped by album and ordered by disc/track:
+
+    $ hmuzik recently-added
+
+By default this scans `$HOME/Music/Artists` and writes `recently added (NNd)`
+playlists for the windows `1, 7, 14, 30, 90` days into
+`$HOME/.config/cmus/playlists/`. Albums float to the top by most recent
+ctime; tracks within an album keep their (disc, track) order. Override with
+`-s/--source`, `-o/--output`, and `-w/--windows`. Use `-r/--dryrun` to print
+counts without writing.
+
 
 ## Layout
 
-    cmd/            cobra subcommands (root, organize, m3u, playlists)
-    internal/m3u/   m3u playlist generation
-    main.go         entry point
+    cmd/                       cobra subcommands
+    internal/m3u/              m3u playlist generation
+    internal/recentlyadded/    recently-added playlist builder
+    main.go                    entry point
 
 
 ## Collaboration
