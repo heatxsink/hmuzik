@@ -22,19 +22,20 @@ var versionCmd = &cobra.Command{
 		if version == "" {
 			version = "(devel)"
 		}
-		out := cmd.OutOrStdout()
-		fmt.Fprintf(out, "hmuzik %s\n", version)
-		fmt.Fprintf(out, "  go:       %s\n", info.GoVersion)
+		var sha, ts string
 		for _, s := range info.Settings {
 			switch s.Key {
 			case "vcs.revision":
-				fmt.Fprintf(out, "  revision: %s\n", s.Value)
+				if len(s.Value) >= 7 {
+					sha = s.Value[:7]
+				} else {
+					sha = s.Value
+				}
 			case "vcs.time":
-				fmt.Fprintf(out, "  built:    %s\n", s.Value)
-			case "vcs.modified":
-				fmt.Fprintf(out, "  dirty:    %s\n", s.Value)
+				ts = s.Value
 			}
 		}
+		fmt.Fprintln(cmd.OutOrStdout(), version, sha, ts)
 	},
 }
 
