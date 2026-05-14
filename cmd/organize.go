@@ -69,7 +69,7 @@ var organizeCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
-			defer f.Close()
+			defer func() { _ = f.Close() }()
 			m, err := tag.ReadFrom(f)
 			if err != nil {
 				fmt.Println(err, "-->", info.Name())

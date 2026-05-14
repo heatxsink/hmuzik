@@ -35,7 +35,7 @@ var versionCmd = &cobra.Command{
 				ts = s.Value
 			}
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), version, sha, ts)
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), version, sha, ts)
 	},
 }
 
