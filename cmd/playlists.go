@@ -11,7 +11,7 @@ import (
 
 var playlistsCmd = &cobra.Command{
 	Use:   "playlists",
-	Short: "Convert all cmus playlists to extended m3u in.",
+	Short: "Convert all cmus playlists to extended m3u.",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmusConfigPlaylistPath := fmt.Sprintf("%s/.config/cmus/playlists/", os.Getenv("HOME"))

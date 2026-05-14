@@ -1,6 +1,7 @@
 package m3u
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -75,12 +76,16 @@ func CreateFromCmusPlaylist(cmusPlaylistPath string, outputPath string, prefix s
 			Info:   "",
 			Length: -1,
 		}
-		m, err := tag.ReadFrom(f)
-		if err == tag.ErrNoTagsFound {
-			fmt.Println(err, "-->", f.Name())
-			track.Info = strings.TrimSuffix(filepath.Base(line), filepath.Ext(line))
-		} else {
+		m, terr := tag.ReadFrom(f)
+		switch {
+		case terr == nil:
 			track.Info = fmt.Sprintf("%s - %s", m.Artist(), m.Title())
+		case errors.Is(terr, tag.ErrNoTagsFound):
+			fmt.Println(terr, "-->", f.Name())
+			track.Info = strings.TrimSuffix(filepath.Base(line), filepath.Ext(line))
+		default:
+			fmt.Println(terr, "-->", f.Name())
+			track.Info = strings.TrimSuffix(filepath.Base(line), filepath.Ext(line))
 		}
 		_ = f.Close()
 		tracks = append(tracks, track)

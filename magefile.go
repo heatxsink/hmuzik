@@ -14,7 +14,7 @@ import (
 const name = "hmuzik"
 
 func init() {
-	os.Setenv("MAGEFILE_VERBOSE", "true")
+	_ = os.Setenv("MAGEFILE_VERBOSE", "true")
 }
 
 func Clean() {

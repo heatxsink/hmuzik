@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"runtime/debug"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -10,12 +12,13 @@ import (
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version, build, and VCS information.",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		info, ok := debug.ReadBuildInfo()
 		if !ok {
-			return fmt.Errorf("build info not available")
+			fmt.Fprintln(os.Stderr, "build info not available")
+			os.Exit(1)
 		}
-		version := info.Main.Version
+		version := strings.TrimSuffix(info.Main.Version, "+dirty")
 		if version == "" {
 			version = "(devel)"
 		}
@@ -32,7 +35,6 @@ var versionCmd = &cobra.Command{
 				fmt.Fprintf(out, "  dirty:    %s\n", s.Value)
 			}
 		}
-		return nil
 	},
 }
 

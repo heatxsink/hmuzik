@@ -13,6 +13,7 @@ import (
 var (
 	sourcePathOption      string
 	destinationPathOption string
+	dryRunFlagOption      bool
 )
 
 func isAudioFile(filename string) bool {
@@ -42,7 +43,7 @@ func normalize(s string) string {
 
 var organizeCmd = &cobra.Command{
 	Use:   "organize",
-	Short: "Organize a directory path of desperate music files.",
+	Short: "Organize a directory of disparate music files into Artist/Album/.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if sourcePathOption == "" {
 			return fmt.Errorf("missing 'source' option")
@@ -85,7 +86,7 @@ var organizeCmd = &cobra.Command{
 				album = normalize(m.Album())
 			}
 			d := fmt.Sprintf("%s/%s/%s", destinationPathOption, artist, album)
-			if err := os.MkdirAll(d, 0777); err != nil {
+			if err := os.MkdirAll(d, 0755); err != nil {
 				return err
 			}
 			destPath := fmt.Sprintf("%s/%s", d, info.Name())
@@ -110,6 +111,7 @@ var organizeCmd = &cobra.Command{
 func init() {
 	organizeCmd.Flags().StringVarP(&sourcePathOption, "source", "s", "", "source path with music files")
 	organizeCmd.Flags().StringVarP(&destinationPathOption, "destination", "d", "", "destination path for organized music")
+	organizeCmd.Flags().BoolVarP(&dryRunFlagOption, "dryrun", "r", false, "print planned moves without performing them")
 	_ = organizeCmd.MarkFlagRequired("source")
 	_ = organizeCmd.MarkFlagRequired("destination")
 	rootCmd.AddCommand(organizeCmd)
