@@ -3,7 +3,7 @@
 **Author:**
 **Reviewers:**
 **Status:** Draft
-**Last Updated:** 2026-06-22
+**Last Updated:** 2026-06-23
 **GitHub Issue:**
 
 <!-- Status lifecycle: Draft -> Approved -> Implemented (v1) -> Implemented (v2) -->
@@ -120,14 +120,16 @@ review, multiple providers, or image processing -- those are deferred.
 hmuzik albumart [flags]
 
 Flags:
-  -s, --source string       source directory to scan (required)
+  -s, --source string       source directory to scan (default $HOME/Music/Artists)
   -r, --dryrun              report planned embeddings without writing
   -f, --force               overwrite existing PICTURE blocks
       --no-network          skip MusicBrainz / CAA; local sources only
       --min-score int       MusicBrainz auto-accept threshold (default 95)
       --cache-dir string    cache root (default $XDG_CACHE_HOME/hmuzik/albumart)
       --user-agent string   override the User-Agent sent to MB/CAA
-      --max-image-bytes int hard cap on embedded image size in bytes (default 5_000_000)
+      --max-image-bytes int hard cap on embedded image size in bytes,
+                            applied uniformly to local and remote sources
+                            (default 5_000_000)
 ```
 
 The subcommand glue lives in `cmd/albumart.go`; the actual work lives in
@@ -195,6 +197,27 @@ existing blocks for `BlockTypePicture`, and append a new block built with
 `github.com/go-flac/flacpicture/v2.NewFromImageData`. Picture type is `3`
 (Front Cover); MIME comes from the source (`image/jpeg` or `image/png`).
 
+#### Picture-presence check covers both forms
+
+FLAC permits art in two places:
+
+- The native `PICTURE` metadata block (preferred, what we write).
+- A base64-encoded `METADATA_BLOCK_PICTURE` value inside the Vorbis comment
+  block (legacy; what some older taggers produce).
+
+A file is considered to "have a picture" if either is present. The default
+behavior (skip files that already have art) treats both forms as a match. On
+`--force`, we additionally strip any legacy `METADATA_BLOCK_PICTURE` Vorbis
+comments while writing the new native block, so we don't leave the file in
+an inconsistent dual-source state that confuses players.
+
+#### Image size cap applies to all sources
+
+The `--max-image-bytes` ceiling is checked against the byte length of the
+resolved image regardless of origin -- a 12 MB local `cover.png` and a 12 MB
+CAA download are both rejected with the same `unresolved(*)` outcome. This
+keeps the cap from being a network-only safeguard.
+
 Writes are atomic: serialize to a sibling temp file in the same directory,
 `fsync`, then `os.Rename` over the original. Same-directory rename is atomic
 on POSIX filesystems, which is what we ship for.
@@ -203,8 +226,8 @@ on POSIX filesystems, which is what we ship for.
 
 - HTTP client with a single-token bucket limiter at 1 req/sec.
 - Required `User-Agent` of the form `hmuzik/<version> ( <contact> )`.
-  Default contact comes from the `git config user.email` baked into the
-  binary at build time, overridable via `--user-agent`.
+  Default contact is the project URL (`github.com/heatxsink/hmuzik`),
+  overridable via `--user-agent`.
 - Endpoints used:
   - `GET /ws/2/release/?query=artist:"X" AND release:"Y"&fmt=json` for
     search.
@@ -213,6 +236,32 @@ on POSIX filesystems, which is what we ship for.
 - We pick the top result whose `score` field is >= `--min-score`. Ties are
   broken by preferring official album releases (`release-group.primary-type
   == "Album"` and `status == "Official"`).
+
+#### Query escaping
+
+Artist and release values come straight from FLAC tags and routinely contain
+Lucene reserved characters: `AC/DC`, `Belle and Sebastian`, releases with
+colons (`Songs: Ohia`), parens, hyphens, ampersands. The MusicBrainz search
+endpoint is a Lucene front-end and will silently produce wrong matches or
+HTTP 400s on unescaped input.
+
+Before building the query string, escape the full Lucene reserved set:
+`+ - && || ! ( ) { } [ ] ^ " ~ * ? : \ /` (each with a leading backslash;
+`&&` and `||` escape as `\&&` and `\||`). The escape happens on the bare
+field value *before* the surrounding double quotes are applied -- the
+quotes themselves are part of our query syntax, not user input. A small
+table-driven escape helper lives in `musicbrainz.go` alongside the client.
+
+#### Cold-cache runtime cost
+
+The 1 req/sec rate limit dominates first-run latency on a cold library: a
+scan of N uncached albums takes ~N seconds for the MB search alone, plus
+the CAA fetch per resolved release. A library with ~5,000 uncached albums
+takes >80 minutes on first run; subsequent runs are bounded by disk-cache
+hits (effectively instant). This is the primary motivation for both the
+per-album-directory grouping and the long cache TTLs. The implementation
+should print a heartbeat (e.g. one line per N directories processed) so the
+user can tell the difference between "running slowly" and "stuck."
 
 ### Cover Art Archive client
 
@@ -236,6 +285,13 @@ cache/
     <mbid>.{jpg,png}            front cover bytes (TTL: 30 days)
     <mbid>.404                  negative cache marker (TTL: 1 day)
 ```
+
+**Expiry mechanism:** file mtime. On read, if `now - mtime > TTL` the entry
+is treated as absent and re-fetched (which `os.Rename`s a fresh file into
+place, resetting mtime). No sidecar metadata, no embedded timestamps in the
+JSON -- the filesystem is the source of truth. This makes manual cache
+invalidation trivial (`touch -d '2000-01-01' <file>` or `rm`) and means
+`--force` just `rm -rf`s the cache directory.
 
 The TTLs are deliberately long. Album art is overwhelmingly stable; if a user
 wants a fresh fetch they pass `--force` and clear the cache directory.
