@@ -23,4 +23,7 @@ go.work
 hmuzik
 
 # Local design notes, scratch docs — not for the repo.
-docs/
+# Published docs are allowlisted below.
+docs/*
+!docs/album-art.md
+!docs/recently-added.md
