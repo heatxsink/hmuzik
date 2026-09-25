@@ -3,10 +3,12 @@ package m3u
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
+	"unicode"
 
 	"github.com/dhowden/tag"
 )
@@ -55,7 +57,7 @@ func Filename(cmusPlaylistPath string, outputPath string) string {
 	return filepath.Join(outputPath, m3uBase)
 }
 
-func CreateFromCmusPlaylist(cmusPlaylistPath string, outputPath string, prefix string) error {
+func CreateFromCmusPlaylist(cmusPlaylistPath string, outputPath string, prefix string, resolver *Resolver) error {
 	data, err := os.ReadFile(cmusPlaylistPath)
 	if err != nil {
 		return err
@@ -67,6 +69,16 @@ func CreateFromCmusPlaylist(cmusPlaylistPath string, outputPath string, prefix s
 			continue
 		}
 		f, err := os.Open(line)
+		if errors.Is(err, fs.ErrNotExist) {
+			resolved, rerr := resolver.Resolve(line)
+			if rerr != nil {
+				fmt.Println(rerr, "-->", line)
+				continue
+			}
+			fmt.Println("resolved", line, "-->", resolved)
+			line = resolved
+			f, err = os.Open(line)
+		}
 		if err != nil {
 			fmt.Println(err)
 			continue
@@ -79,7 +91,7 @@ func CreateFromCmusPlaylist(cmusPlaylistPath string, outputPath string, prefix s
 		m, terr := tag.ReadFrom(f)
 		switch {
 		case terr == nil:
-			track.Info = fmt.Sprintf("%s - %s", m.Artist(), m.Title())
+			track.Info = stripControl(fmt.Sprintf("%s - %s", m.Artist(), m.Title()))
 		case errors.Is(terr, tag.ErrNoTagsFound):
 			fmt.Println(terr, "-->", f.Name())
 			track.Info = strings.TrimSuffix(filepath.Base(line), filepath.Ext(line))
@@ -95,4 +107,15 @@ func CreateFromCmusPlaylist(cmusPlaylistPath string, outputPath string, prefix s
 		Tracks: tracks,
 	}
 	return pl.ToFile(Filename(cmusPlaylistPath, outputPath))
+}
+
+// stripControl drops control characters from tag text so a malformed tag
+// cannot break an #EXTINF line across multiple lines.
+func stripControl(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, s)
 }

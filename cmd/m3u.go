@@ -16,7 +16,7 @@ var m3uCmd = &cobra.Command{
 		cmusPlaylistPath := args[0]
 		scrubPrefix := args[1]
 		outputPath := filepath.Dir(cmusPlaylistPath)
-		if err := m3u.CreateFromCmusPlaylist(cmusPlaylistPath, outputPath, scrubPrefix); err != nil {
+		if err := m3u.CreateFromCmusPlaylist(cmusPlaylistPath, outputPath, scrubPrefix, m3u.NewResolver()); err != nil {
 			return err
 		}
 		filename := m3u.Filename(cmusPlaylistPath, outputPath)
