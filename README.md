@@ -32,16 +32,17 @@ Convert every cmus playlist under `~/.config/cmus/playlists/` to extended m3u:
 
     $ hmuzik playlists /home/ngranado/Music/Playlists /home/ngranado
 
-Generate "recently added" cmus playlists, grouped by album and ordered by disc/track:
+Generate a "Recently Added" cmus playlist, grouped by album and ordered by disc/track:
 
     $ hmuzik recently-added
 
-By default this scans `$HOME/Music/Artists` and writes `recently added (NNd)`
-playlists for the windows `1, 7, 14, 30, 90` days into
-`$HOME/.config/cmus/playlists/`. Albums float to the top by most recent
-ctime; tracks within an album keep their (disc, track) order. Override with
-`-s/--source`, `-o/--output`, and `-w/--windows`. Use `-r/--dryrun` to print
-counts without writing.
+By default this scans `$HOME/Music/Artists` and writes a `Recently Added`
+playlist covering the last 14 days into `$HOME/.config/cmus/playlists/`.
+Albums float to the top by most recent ctime; tracks within an album keep
+their (disc, track) order. Override with `-s/--source`, `-o/--output`, and
+`-d/--days`. Pass `-w/--windows 1,7,30` instead of `-d` to write one
+`recently added (NNd)` playlist per window. Use `-r/--dryrun` to print counts
+without writing.
 
 
 ## Layout

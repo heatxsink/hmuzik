@@ -16,13 +16,14 @@ import (
 var (
 	recentlyAddedSourceOption  string
 	recentlyAddedOutputOption  string
+	recentlyAddedDaysOption    int
 	recentlyAddedWindowsOption string
 	recentlyAddedDryRunOption  bool
 )
 
 var recentlyAddedCmd = &cobra.Command{
 	Use:   "recently-added",
-	Short: "Generate cmus playlists of recently-added tracks, grouped by album.",
+	Short: "Generate a cmus \"Recently Added\" playlist, grouped by album.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		home := os.Getenv("HOME")
 		source := recentlyAddedSourceOption
@@ -33,11 +34,11 @@ var recentlyAddedCmd = &cobra.Command{
 		if output == "" {
 			output = filepath.Join(home, ".config", "cmus", "playlists")
 		}
-		days, err := parseWindowDays(recentlyAddedWindowsOption)
+		targets, err := recentlyAddedTargets(recentlyAddedDaysOption, recentlyAddedWindowsOption, cmd.Flags().Changed("windows"))
 		if err != nil {
 			return err
 		}
-		maxDays := slices.Max(days)
+		maxDays := targets[len(targets)-1].days
 		now := time.Now()
 		since := now.Add(-time.Duration(maxDays) * 24 * time.Hour)
 
@@ -56,10 +57,10 @@ var recentlyAddedCmd = &cobra.Command{
 		albums := recentlyadded.GroupByAlbum(tracks)
 		fmt.Printf("Grouped into %d albums.\n", len(albums))
 
-		for _, d := range days {
-			window := time.Duration(d) * 24 * time.Hour
+		for _, t := range targets {
+			window := time.Duration(t.days) * 24 * time.Hour
 			paths := recentlyadded.Playlist(albums, window, now)
-			out := filepath.Join(output, fmt.Sprintf("recently added (%02dd)", d))
+			out := filepath.Join(output, t.name)
 			if recentlyAddedDryRunOption {
 				fmt.Printf("[dryrun] %s: %d tracks\n", out, len(paths))
 				continue
@@ -71,6 +72,32 @@ var recentlyAddedCmd = &cobra.Command{
 		}
 		return nil
 	},
+}
+
+type recentlyAddedTarget struct {
+	days int
+	name string
+}
+
+// recentlyAddedTargets returns the playlists to write, sorted by window: a
+// single "Recently Added" playlist by default, or one "recently added (NNd)"
+// playlist per window when --windows is given.
+func recentlyAddedTargets(days int, windows string, useWindows bool) ([]recentlyAddedTarget, error) {
+	if !useWindows {
+		if days <= 0 {
+			return nil, fmt.Errorf("invalid --days %d: must be > 0", days)
+		}
+		return []recentlyAddedTarget{{days: days, name: "Recently Added"}}, nil
+	}
+	ds, err := parseWindowDays(windows)
+	if err != nil {
+		return nil, err
+	}
+	targets := make([]recentlyAddedTarget, 0, len(ds))
+	for _, d := range ds {
+		targets = append(targets, recentlyAddedTarget{days: d, name: fmt.Sprintf("recently added (%02dd)", d)})
+	}
+	return targets, nil
 }
 
 func parseWindowDays(s string) ([]int, error) {
@@ -100,7 +127,9 @@ func parseWindowDays(s string) ([]int, error) {
 func init() {
 	recentlyAddedCmd.Flags().StringVarP(&recentlyAddedSourceOption, "source", "s", "", "music library root (default $HOME/Music/Artists)")
 	recentlyAddedCmd.Flags().StringVarP(&recentlyAddedOutputOption, "output", "o", "", "cmus playlist directory (default $HOME/.config/cmus/playlists)")
-	recentlyAddedCmd.Flags().StringVarP(&recentlyAddedWindowsOption, "windows", "w", "1,7,14,30,90", "comma-separated day windows")
+	recentlyAddedCmd.Flags().IntVarP(&recentlyAddedDaysOption, "days", "d", 14, "write one \"Recently Added\" playlist covering this many days")
+	recentlyAddedCmd.Flags().StringVarP(&recentlyAddedWindowsOption, "windows", "w", "", "comma-separated day windows; writes one \"recently added (NNd)\" playlist per window instead")
 	recentlyAddedCmd.Flags().BoolVarP(&recentlyAddedDryRunOption, "dryrun", "r", false, "report counts without writing playlists")
+	recentlyAddedCmd.MarkFlagsMutuallyExclusive("days", "windows")
 	rootCmd.AddCommand(recentlyAddedCmd)
 }
