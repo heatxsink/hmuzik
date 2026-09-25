@@ -45,12 +45,17 @@ func TestResolve(t *testing.T) {
 		{"new filename pattern", "Jeff Mills/The Trip To Vega/07. March Of The Purple Orbs.flac", "Jeff Mills/The Trip To Vega/07 - Jeff Mills - The Trip To Vega - March of the Purple Orbs.flac", nil},
 		{"existing album never searches artist", "Drake/Views/Other Song.flac", "", ErrNotFound},
 		{"unknown artist", "Nobody/Album/01. Song.flac", "", ErrNotFound},
+		{"relative path is not searched", "", "", ErrNotFound},
 		{"ambiguous without number", "Dupes/C/01. Intro.flac", "", ErrAmbiguous},
 	}
 	r := NewResolver()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := r.Resolve(filepath.Join(root, tt.in))
+			in := filepath.Join(root, tt.in)
+			if tt.in == "" {
+				in = "01. LEMON SWAYZE.flac"
+			}
+			got, err := r.Resolve(in)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("err: want %v, got %v", tt.wantErr, err)
 			}

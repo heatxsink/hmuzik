@@ -39,6 +39,9 @@ func NewResolver() *Resolver {
 // The artist directory is searched only when the album directory is gone, so
 // a track missing from an existing album never matches elsewhere.
 func (r *Resolver) Resolve(path string) (string, error) {
+	if !filepath.IsAbs(path) {
+		return "", ErrNotFound
+	}
 	album := filepath.Dir(path)
 	base, ok := findDirFold(album)
 	if !ok {
