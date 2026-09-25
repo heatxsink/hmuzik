@@ -18,6 +18,7 @@ var playlistsCmd = &cobra.Command{
 		outputPath := args[0]
 		scrubPrefix := args[1]
 		fmt.Println("Searching:", cmusConfigPlaylistPath)
+		resolver := m3u.NewResolver()
 		err := filepath.Walk(cmusConfigPlaylistPath, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
@@ -25,7 +26,7 @@ var playlistsCmd = &cobra.Command{
 			if info.IsDir() {
 				return nil
 			}
-			if err := m3u.CreateFromCmusPlaylist(path, outputPath, scrubPrefix); err != nil {
+			if err := m3u.CreateFromCmusPlaylist(path, outputPath, scrubPrefix, resolver); err != nil {
 				return err
 			}
 			fmt.Println(filepath.Base(m3u.Filename(path, outputPath)))
