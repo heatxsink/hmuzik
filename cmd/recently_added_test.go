@@ -41,3 +41,37 @@ func TestParseWindowDays(t *testing.T) {
 		})
 	}
 }
+
+func TestRecentlyAddedTargets(t *testing.T) {
+	cases := []struct {
+		name       string
+		days       int
+		windows    string
+		useWindows bool
+		want       []recentlyAddedTarget
+		wantErr    bool
+	}{
+		{"default single", 14, "", false, []recentlyAddedTarget{{14, "Recently Added"}}, false},
+		{"custom days", 30, "", false, []recentlyAddedTarget{{30, "Recently Added"}}, false},
+		{"zero days", 0, "", false, nil, true},
+		{"windows", 14, "30,1,7", true, []recentlyAddedTarget{{1, "recently added (01d)"}, {7, "recently added (07d)"}, {30, "recently added (30d)"}}, false},
+		{"empty windows", 14, "", true, nil, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := recentlyAddedTargets(tc.days, tc.windows, tc.useWindows)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("want error, got %v", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("want %v, got %v", tc.want, got)
+			}
+		})
+	}
+}
