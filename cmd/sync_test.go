@@ -1,15 +1,18 @@
 package cmd
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestSyncTargets(t *testing.T) {
 	music, playlists := syncTargets("/home/u", "/run/media/u/IPOD")
 	want := []syncTarget{
-		{name: "music", source: "/home/u/Music/Artists", dest: "/run/media/u/IPOD/Music/Artists"},
+		{name: "music", source: "/home/u/Music/Artists", dest: "/run/media/u/IPOD/Music/Artists", exclude: []string{"cover.jpg"}},
 		{name: "playlists", source: "/home/u/Music/Playlists", dest: "/run/media/u/IPOD/Playlists"},
 	}
 	for i, got := range []syncTarget{music, playlists} {
-		if got != want[i] {
+		if !reflect.DeepEqual(got, want[i]) {
 			t.Errorf("target %d: want %+v, got %+v", i, want[i], got)
 		}
 	}
@@ -28,7 +31,7 @@ func TestSyncTargetWithOverrides(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := base.withOverrides(tc.source, tc.dest); got != tc.want {
+			if got := base.withOverrides(tc.source, tc.dest); !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("want %+v, got %+v", tc.want, got)
 			}
 		})

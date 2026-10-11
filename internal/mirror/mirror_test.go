@@ -285,3 +285,35 @@ func TestIsFatal(t *testing.T) {
 		}
 	}
 }
+
+func TestMirror_ExcludeSkipsCopyAndDelete(t *testing.T) {
+	src, dst := t.TempDir(), t.TempDir()
+	write(t, p(src, "A/1.flac"), "x", base)
+	write(t, p(src, "A/cover.jpg"), "art", base)
+	write(t, p(dst, "B/cover.jpg"), "old art", base) // not in src, but excluded
+
+	var r recorder
+	if _, err := Mirror(src, dst, Options{Delete: true, Exclude: []string{"cover.jpg"}, Report: r.report}); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"A/1.flac"}; !reflect.DeepEqual(r.copies, want) {
+		t.Errorf("copies: want %v, got %v", want, r.copies)
+	}
+	if len(r.deletes) != 0 {
+		t.Errorf("deleted excluded file: %v", r.deletes)
+	}
+	if _, err := os.Stat(p(dst, "B/cover.jpg")); err != nil {
+		t.Errorf("excluded file removed: %v", err)
+	}
+}
+
+func TestMirror_RejectsBadExcludePattern(t *testing.T) {
+	src, dst := t.TempDir(), t.TempDir()
+	write(t, p(src, "A/1.flac"), "x", base)
+	if _, err := Mirror(src, dst, Options{Exclude: []string{"["}}); err == nil {
+		t.Fatal("want error for malformed pattern")
+	}
+	if entries, _ := os.ReadDir(dst); len(entries) != 0 {
+		t.Errorf("copied despite bad pattern: %v", entries)
+	}
+}
