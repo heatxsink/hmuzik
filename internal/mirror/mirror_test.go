@@ -231,9 +231,11 @@ func TestMirror_StopsWhenDestinationReplaced(t *testing.T) {
 	write(t, p(src, "A/2.flac"), "x", base)
 	var copies int
 	// Same path, different directory: like a bare mountpoint left behind.
+	// Rename rather than remove so the old inode stays live and can't be
+	// reused for the replacement.
 	_, err := Mirror(src, dst, Options{Report: func(Action, string) {
 		copies++
-		if err := os.RemoveAll(dst); err != nil {
+		if err := os.Rename(dst, dst+".old"); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.Mkdir(dst, 0o755); err != nil {
