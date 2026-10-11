@@ -1,10 +1,13 @@
 package mirror
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -169,7 +172,7 @@ func TestMirror_IgnoresHiddenFiles(t *testing.T) {
 	write(t, p(src, "A/1.flac"), "x", base)
 	write(t, p(src, "A/.DS_Store"), "junk", base)
 	write(t, p(src, ".git/config"), "junk", base)
-	write(t, p(dst, ".rockbox/config.cfg"), "keep", base)
+	write(t, p(dst, ".Trash-1000/x.flac"), "keep", base)
 	write(t, p(dst, "A/._1.flac"), "keep", base)
 
 	var r recorder
@@ -182,9 +185,101 @@ func TestMirror_IgnoresHiddenFiles(t *testing.T) {
 	if len(r.deletes) != 0 {
 		t.Errorf("deleted hidden files: %v", r.deletes)
 	}
-	for _, rel := range []string{".rockbox/config.cfg", "A/._1.flac"} {
+	for _, rel := range []string{".Trash-1000/x.flac", "A/._1.flac"} {
 		if _, err := os.Stat(p(dst, rel)); err != nil {
 			t.Errorf("%s: %v", rel, err)
+		}
+	}
+}
+
+func TestMirror_StopsWhenDestinationDisappears(t *testing.T) {
+	src := t.TempDir()
+	dst := p(t.TempDir(), "IPOD")
+	if err := os.Mkdir(dst, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, rel := range []string{"A/1.flac", "A/2.flac", "B/1.flac"} {
+		write(t, p(src, rel), "x", base)
+	}
+	var r recorder
+	// Unplug the "device" right after the first copy lands.
+	_, err := Mirror(src, dst, Options{Report: func(a Action, rel string) {
+		r.report(a, rel)
+		if len(r.copies) == 1 {
+			if err := os.RemoveAll(dst); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}})
+	if !errors.Is(err, errUnmounted) {
+		t.Fatalf("want errUnmounted, got %v", err)
+	}
+	if len(r.copies) != 1 {
+		t.Errorf("kept copying after unmount: %v", r.copies)
+	}
+	if _, err := os.Stat(dst); !os.IsNotExist(err) {
+		t.Errorf("destination recreated on the parent filesystem: %v", err)
+	}
+}
+
+func TestMirror_StopsWhenDestinationReplaced(t *testing.T) {
+	src, dst := t.TempDir(), p(t.TempDir(), "IPOD")
+	if err := os.Mkdir(dst, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	write(t, p(src, "A/1.flac"), "x", base)
+	write(t, p(src, "A/2.flac"), "x", base)
+	var copies int
+	// Same path, different directory: like a bare mountpoint left behind.
+	_, err := Mirror(src, dst, Options{Report: func(Action, string) {
+		copies++
+		if err := os.RemoveAll(dst); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(dst, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}})
+	if !errors.Is(err, errUnmounted) || copies != 1 {
+		t.Fatalf("want stop after 1 copy with errUnmounted, got %d copies, %v", copies, err)
+	}
+	if entries, _ := os.ReadDir(dst); len(entries) != 0 {
+		t.Errorf("wrote into replacement directory: %v", entries)
+	}
+}
+
+func TestMirror_RefusesDeleteAtDeviceRoot(t *testing.T) {
+	src, dst := t.TempDir(), t.TempDir()
+	write(t, p(src, "A/1.flac"), "x", base)
+	write(t, p(dst, "Notes/todo.txt"), "keep", base)
+	if err := os.Mkdir(p(dst, ".rockbox"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Mirror(src, dst, Options{Delete: true}); err == nil {
+		t.Fatal("want error for --delete at device root")
+	}
+	if _, err := os.Stat(p(dst, "Notes/todo.txt")); err != nil {
+		t.Errorf("deleted from device root: %v", err)
+	}
+	if _, err := os.Stat(p(dst, "A/1.flac")); !os.IsNotExist(err) {
+		t.Errorf("copied despite refusal: %v", err)
+	}
+}
+
+func TestIsFatal(t *testing.T) {
+	for _, tc := range []struct {
+		err  error
+		want bool
+	}{
+		{&os.PathError{Op: "write", Path: "x", Err: syscall.ENOSPC}, true},
+		{fmt.Errorf("copy a: %w", &os.PathError{Op: "open", Path: "x", Err: syscall.EROFS}), true},
+		{&os.PathError{Op: "read", Path: "x", Err: syscall.EIO}, true},
+		{fmt.Errorf("%w: gone", errUnmounted), true},
+		{&os.PathError{Op: "open", Path: "x", Err: syscall.EINVAL}, false},
+		{nil, false},
+	} {
+		if got := isFatal(tc.err); got != tc.want {
+			t.Errorf("isFatal(%v) = %v, want %v", tc.err, got, tc.want)
 		}
 	}
 }
