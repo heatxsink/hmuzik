@@ -44,27 +44,33 @@ their (disc, track) order. Override with `-s/--source`, `-o/--output`, and
 `recently added (NNd)` playlist per window. Use `-r/--dryrun` to print counts
 without writing.
 
-Copy new and changed library files to a mounted Rockbox iPod:
+Copy new and changed music and playlists to a mounted Rockbox iPod:
 
-    $ hmuzik sync -r --delete
-    $ hmuzik sync --delete
+    $ hmuzik sync -r --delete          # dry run: music, then playlists
+    $ hmuzik sync --delete             # both
+    $ hmuzik sync music --delete       # just $HOME/Music/Artists
+    $ hmuzik sync playlists --delete   # just $HOME/Music/Playlists
 
-By default this mirrors `$HOME/Music/Artists` onto
-`/run/media/$USER/IPOD/Music/Artists`, which must already exist (the command
-fails rather than writing anywhere if the iPod isn't mounted). A file is copied
-when it is missing or its size or modification time differs, so after editing
-tags let the modification time change (don't use `metaflac --preserve-modtime`)
-or the edit won't be picked up. Copies go to a temp file that is synced and
-renamed into place, so an unplug mid-copy never leaves a truncated track.
-If the iPod is unplugged mid-run, the disk fills, or it remounts
-read-only, the sync stops instead of writing elsewhere or piling up errors.
-`--delete` removes files that are no longer in the library; paths match
-case-insensitively, as on FAT. It refuses to run against the device root
-(anything containing `.rockbox` or `iPod_Control`). Hidden files are ignored on both sides. The
-device is never ejected. Update the Rockbox database afterwards to pick up the
-changes. The summary line reports elapsed time and throughput. Override paths
-with `-s/--source` and `-d/--dest`; `-r/--dryrun` prints the plan without
-writing.
+`sync music` mirrors `$HOME/Music/Artists` onto `<device>/Music/Artists` and
+`sync playlists` mirrors `$HOME/Music/Playlists` onto `<device>/Playlists`;
+bare `sync` runs both, in that order. The device defaults to
+`/run/media/$USER/IPOD` (`--device` to change), and each destination must
+already exist: the command fails rather than writing anywhere if the iPod isn't
+mounted. `--delete`, `--device` and `-r/--dryrun` apply to every form; each
+subcommand also takes `-s/--source` and `-d/--dest` to override its paths.
+
+A file is copied when it is missing or its size or modification time differs,
+so after editing tags let the modification time change (don't use `metaflac
+--preserve-modtime`) or the edit won't be picked up. Copies go to a temp file
+that is synced and renamed into place, so an unplug mid-copy never leaves a
+truncated track. If the iPod is unplugged mid-run, the disk fills, or it
+remounts read-only, the sync stops instead of writing elsewhere or piling up
+errors. `--delete` removes files that are no longer in the source, including
+playlists created on the iPod; paths match case-insensitively, as on FAT. It
+refuses to run against the device root (anything containing `.rockbox` or
+`iPod_Control`). Hidden files are ignored on both sides. The device is never
+ejected. Update the Rockbox database afterwards to pick up the changes. Each
+summary line reports elapsed time and throughput.
 
 
 ## Layout
