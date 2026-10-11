@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/heatxsink/hmuzik/internal/mirror"
 	"github.com/spf13/cobra"
@@ -37,6 +38,7 @@ var syncCmd = &cobra.Command{
 			prefix = "[dryrun] "
 		}
 		fmt.Printf("Syncing: %s -> %s\n", source, dest)
+		start := time.Now()
 		res, err := mirror.Mirror(source, dest, mirror.Options{
 			Delete: syncDeleteOption,
 			DryRun: syncDryRunOption,
@@ -44,8 +46,14 @@ var syncCmd = &cobra.Command{
 				fmt.Printf("%s%s %s\n", prefix, a, rel)
 			},
 		})
-		fmt.Printf("%sCopied %d files (%.1f MB), deleted %d, unchanged %d.\n",
-			prefix, res.Copied, float64(res.Bytes)/1e6, res.Deleted, res.Skipped)
+		elapsed := time.Since(start)
+		mb := float64(res.Bytes) / 1e6
+		fmt.Printf("%sCopied %d files (%.1f MB), deleted %d, unchanged %d in %s",
+			prefix, res.Copied, mb, res.Deleted, res.Skipped, elapsed.Round(time.Second))
+		if !syncDryRunOption && res.Copied > 0 {
+			fmt.Printf(" (%.1f MB/s)", mb/elapsed.Seconds())
+		}
+		fmt.Println(".")
 		if err != nil {
 			return err
 		}

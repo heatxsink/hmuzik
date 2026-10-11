@@ -56,11 +56,15 @@ when it is missing or its size or modification time differs, so after editing
 tags let the modification time change (don't use `metaflac --preserve-modtime`)
 or the edit won't be picked up. Copies go to a temp file that is synced and
 renamed into place, so an unplug mid-copy never leaves a truncated track.
+If the iPod is unplugged mid-run, the disk fills, or it remounts
+read-only, the sync stops instead of writing elsewhere or piling up errors.
 `--delete` removes files that are no longer in the library; paths match
-case-insensitively, as on FAT. Hidden files are ignored on both sides. The
+case-insensitively, as on FAT. It refuses to run against the device root
+(anything containing `.rockbox` or `iPod_Control`). Hidden files are ignored on both sides. The
 device is never ejected. Update the Rockbox database afterwards to pick up the
-changes. Override paths with `-s/--source` and `-d/--dest`; `-r/--dryrun`
-prints the plan without writing.
+changes. The summary line reports elapsed time and throughput. Override paths
+with `-s/--source` and `-d/--dest`; `-r/--dryrun` prints the plan without
+writing.
 
 
 ## Layout

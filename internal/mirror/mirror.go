@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -49,21 +50,37 @@ type Result struct {
 	Bytes   int64
 }
 
-// Mirror makes dst match src. dst must already exist: a missing mount point
-// should fail rather than silently fill the parent filesystem. Errors on
-// individual files are collected and returned together; the sync continues
-// past them. Mirror never unmounts or ejects dst.
+// deviceRootMarkers exist only at the top of an iPod; finding one in dst means
+// --delete would wipe everything on the device outside the library.
+var deviceRootMarkers = []string{".rockbox", "iPod_Control"}
+
+// Mirror makes dst match src. dst must already exist and must stay the same
+// directory for the whole run: a missing or unmounted device fails rather than
+// silently filling the parent filesystem. Errors on individual files are
+// collected and returned together and the sync continues past them, except
+// device-level failures (disk full, read-only remount, I/O error), which stop
+// it. Mirror never unmounts or ejects dst.
 func Mirror(src, dst string, opts Options) (Result, error) {
 	var res Result
-	if err := requireDir(src, "source"); err != nil {
+	if _, err := requireDir(src, "source"); err != nil {
 		return res, err
 	}
-	if err := requireDir(dst, "destination"); err != nil {
+	root, err := requireDir(dst, "destination")
+	if err != nil {
 		return res, fmt.Errorf("%w (is the device mounted?)", err)
 	}
 	files, err := listFiles(src)
 	if err != nil {
 		return res, err
+	}
+	// mounted reports an error once dst no longer refers to the directory
+	// checked above, e.g. after the device is unplugged mid-run.
+	mounted := func() error {
+		info, err := os.Stat(dst)
+		if err != nil || !os.SameFile(root, info) {
+			return fmt.Errorf("destination %s changed or disappeared mid-sync (device unmounted?); stopping", dst)
+		}
+		return nil
 	}
 
 	var errs []error
@@ -71,17 +88,28 @@ func Mirror(src, dst string, opts Options) (Result, error) {
 		if len(files) == 0 {
 			return res, fmt.Errorf("source %s has no files; refusing to delete from destination", src)
 		}
-		n, derr := deleteExtra(dst, files, opts)
+		for _, m := range deviceRootMarkers {
+			if _, err := os.Stat(filepath.Join(dst, m)); err == nil {
+				return res, fmt.Errorf("destination %s contains %s, so it looks like a device root; refusing to delete (point --dest at the music folder)", dst, m)
+			}
+		}
+		n, derr := deleteExtra(dst, files, opts, mounted)
 		res.Deleted = n
 		if derr != nil {
 			errs = append(errs, derr)
 		}
+		if isFatal(derr) {
+			return res, errors.Join(errs...)
+		}
 	}
 
 	for _, rel := range files {
-		copied, n, cerr := syncFile(filepath.Join(src, rel), filepath.Join(dst, rel), opts.DryRun)
+		copied, n, cerr := syncFile(filepath.Join(src, rel), filepath.Join(dst, rel), opts.DryRun, mounted)
 		if cerr != nil {
 			errs = append(errs, fmt.Errorf("copy %s: %w", rel, cerr))
+			if isFatal(cerr) {
+				break
+			}
 			continue
 		}
 		if !copied {
@@ -101,15 +129,25 @@ func report(opts Options, a Action, rel string) {
 	}
 }
 
-func requireDir(path, what string) error {
+// errUnmounted marks a run stopped because dst changed underneath it.
+var errUnmounted = errors.New("destination unmounted")
+
+// isFatal reports whether err means the device itself is unusable, so every
+// remaining file would fail the same way.
+func isFatal(err error) bool {
+	return errors.Is(err, errUnmounted) || errors.Is(err, syscall.ENOSPC) ||
+		errors.Is(err, syscall.EROFS) || errors.Is(err, syscall.EIO)
+}
+
+func requireDir(path, what string) (os.FileInfo, error) {
 	info, err := os.Stat(path)
 	if err != nil {
-		return fmt.Errorf("%s %s: %w", what, path, err)
+		return nil, fmt.Errorf("%s %s: %w", what, path, err)
 	}
 	if !info.IsDir() {
-		return fmt.Errorf("%s %s: not a directory", what, path)
+		return nil, fmt.Errorf("%s %s: not a directory", what, path)
 	}
-	return nil
+	return info, nil
 }
 
 // listFiles returns regular files under root as sorted relative paths.
@@ -166,7 +204,7 @@ func needsCopy(src os.FileInfo, dst string) (bool, error) {
 	return src.ModTime().Sub(info.ModTime()).Abs() > modifyWindow, nil
 }
 
-func syncFile(src, dst string, dryRun bool) (copied bool, n int64, err error) {
+func syncFile(src, dst string, dryRun bool, mounted func() error) (copied bool, n int64, err error) {
 	info, err := os.Stat(src)
 	if err != nil {
 		return false, 0, err
@@ -177,6 +215,9 @@ func syncFile(src, dst string, dryRun bool) (copied bool, n int64, err error) {
 	}
 	if dryRun {
 		return true, info.Size(), nil
+	}
+	if err := mounted(); err != nil {
+		return false, 0, fmt.Errorf("%w: %w", errUnmounted, err)
 	}
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return false, 0, err
@@ -224,7 +265,7 @@ func copyFile(src, dst string, mtime time.Time) (int64, error) {
 // case-insensitively because FAT treats "Foo" and "foo" as the same file.
 // Leftover temp files are removed, and so are directories emptied by the
 // deletes.
-func deleteExtra(dst string, files []string, opts Options) (int, error) {
+func deleteExtra(dst string, files []string, opts Options, mounted func() error) (int, error) {
 	keep := make(map[string]struct{}, len(files))
 	for _, rel := range files {
 		keep[strings.ToLower(rel)] = struct{}{}
@@ -256,20 +297,30 @@ func deleteExtra(dst string, files []string, opts Options) (int, error) {
 		if _, ok := keep[strings.ToLower(rel)]; ok {
 			return nil
 		}
-		report(opts, ActionDelete, rel)
-		deleted++
 		if opts.DryRun {
+			report(opts, ActionDelete, rel)
+			deleted++
 			return nil
 		}
-		if rerr := os.Remove(path); rerr != nil {
-			errs = append(errs, fmt.Errorf("delete %s: %w", rel, rerr))
+		if merr := mounted(); merr != nil {
+			return fmt.Errorf("%w: %w", errUnmounted, merr)
 		}
+		if rerr := os.Remove(path); rerr != nil {
+			rerr = fmt.Errorf("delete %s: %w", rel, rerr)
+			if isFatal(rerr) {
+				return rerr
+			}
+			errs = append(errs, rerr)
+			return nil
+		}
+		report(opts, ActionDelete, rel)
+		deleted++
 		return nil
 	})
 	if err != nil {
 		errs = append(errs, err)
 	}
-	if !opts.DryRun {
+	if !opts.DryRun && err == nil {
 		// Deepest first, so parents empty out after their children.
 		for _, dir := range slices.Backward(dirs) {
 			if entries, rerr := os.ReadDir(dir); rerr == nil && len(entries) == 0 {
