@@ -68,7 +68,9 @@ remounts read-only, the sync stops instead of writing elsewhere or piling up
 errors. `--delete` removes files that are no longer in the source, including
 playlists created on the iPod; paths match case-insensitively, as on FAT. It
 refuses to run against the device root (anything containing `.rockbox` or
-`iPod_Control`). Hidden files are ignored on both sides. The device is never
+`iPod_Control`). Hidden files are ignored on both sides, and `sync music` skips
+`cover.jpg` (copies already on the device are left alone, even with
+`--delete`). The device is never
 ejected. Update the Rockbox database afterwards to pick up the changes. Each
 summary line reports elapsed time and throughput.
 

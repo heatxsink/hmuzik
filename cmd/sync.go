@@ -22,9 +22,10 @@ var (
 
 // syncTarget is one library folder and where it lands on the device.
 type syncTarget struct {
-	name   string
-	source string
-	dest   string
+	name    string
+	source  string
+	dest    string
+	exclude []string
 }
 
 // syncTargets returns the music and playlists targets for a library under
@@ -34,6 +35,8 @@ func syncTargets(home, device string) (music, playlists syncTarget) {
 		name:   "music",
 		source: filepath.Join(home, "Music", "Artists"),
 		dest:   filepath.Join(device, "Music", "Artists"),
+		// Album art stays off the device, as cmus-ipod-sync did.
+		exclude: []string{"cover.jpg"},
 	}
 	playlists = syncTarget{
 		name:   "playlists",
@@ -77,8 +80,9 @@ func runSync(targets ...syncTarget) error {
 		fmt.Printf("Syncing %s: %s -> %s\n", t.name, t.source, t.dest)
 		start := time.Now()
 		res, err := mirror.Mirror(t.source, t.dest, mirror.Options{
-			Delete: syncDeleteOption,
-			DryRun: syncDryRunOption,
+			Delete:  syncDeleteOption,
+			DryRun:  syncDryRunOption,
+			Exclude: t.exclude,
 			Report: func(a mirror.Action, rel string) {
 				fmt.Printf("%s%s %s\n", prefix, a, rel)
 			},

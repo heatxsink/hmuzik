@@ -41,6 +41,10 @@ type Options struct {
 	// Report, if set, is called for every copy and delete with a path relative
 	// to the root.
 	Report func(a Action, rel string)
+	// Exclude lists filepath.Match patterns tested against each file's base
+	// name. Matching files are neither copied nor, with Delete, removed from
+	// dst.
+	Exclude []string
 }
 
 type Result struct {
@@ -69,7 +73,12 @@ func Mirror(src, dst string, opts Options) (Result, error) {
 	if err != nil {
 		return res, fmt.Errorf("%w (is the device mounted?)", err)
 	}
-	files, err := listFiles(src)
+	for _, pat := range opts.Exclude {
+		if _, err := filepath.Match(pat, ""); err != nil {
+			return res, fmt.Errorf("exclude pattern %q: %w", pat, err)
+		}
+	}
+	files, err := listFiles(src, opts.Exclude)
 	if err != nil {
 		return res, err
 	}
@@ -150,8 +159,9 @@ func requireDir(path, what string) (os.FileInfo, error) {
 	return info, nil
 }
 
-// listFiles returns regular files under root as sorted relative paths.
-func listFiles(root string) ([]string, error) {
+// listFiles returns regular files under root as sorted relative paths,
+// leaving out excluded ones.
+func listFiles(root string, exclude []string) ([]string, error) {
 	files := []string{}
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -160,7 +170,7 @@ func listFiles(root string) ([]string, error) {
 		if path != root && isHidden(d.Name()) {
 			return skip(d)
 		}
-		if !d.Type().IsRegular() || strings.HasSuffix(d.Name(), tmpSuffix) {
+		if !d.Type().IsRegular() || strings.HasSuffix(d.Name(), tmpSuffix) || isExcluded(d.Name(), exclude) {
 			return nil
 		}
 		rel, err := filepath.Rel(root, path)
@@ -178,6 +188,17 @@ func listFiles(root string) ([]string, error) {
 }
 
 func isHidden(name string) bool { return strings.HasPrefix(name, ".") }
+
+// isExcluded reports whether name matches any pattern. Patterns are validated
+// up front in Mirror, so Match can't fail here.
+func isExcluded(name string, patterns []string) bool {
+	for _, pat := range patterns {
+		if ok, _ := filepath.Match(pat, name); ok {
+			return true
+		}
+	}
+	return false
+}
 
 // skip leaves a hidden entry out of a walk, pruning it whole if it is a
 // directory.
@@ -294,7 +315,7 @@ func deleteExtra(dst string, files []string, opts Options, mounted func() error)
 			dirs = append(dirs, path)
 			return nil
 		}
-		if _, ok := keep[strings.ToLower(rel)]; ok {
+		if _, ok := keep[strings.ToLower(rel)]; ok || isExcluded(d.Name(), opts.Exclude) {
 			return nil
 		}
 		if opts.DryRun {
