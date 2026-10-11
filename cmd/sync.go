@@ -1,12 +1,14 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/heatxsink/hmuzik/internal/device"
 	"github.com/heatxsink/hmuzik/internal/mirror"
 	"github.com/spf13/cobra"
 )
@@ -14,10 +16,15 @@ import (
 // defaultMediaRoot is where udisks mounts removable media on Linux.
 const defaultMediaRoot = "/run/media"
 
+// ejectTimeout bounds unmount plus power-off; flushing a large write-back
+// cache to a slow device can take a while.
+const ejectTimeout = 2 * time.Minute
+
 var (
 	syncDeviceOption string
 	syncDeleteOption bool
 	syncDryRunOption bool
+	syncEjectOption  bool
 )
 
 // syncTarget is one library folder and where it lands on the device.
@@ -57,17 +64,22 @@ func (t syncTarget) withOverrides(source, dest string) syncTarget {
 	return t
 }
 
-func defaultSyncTargets() (music, playlists syncTarget) {
-	device := syncDeviceOption
-	if device == "" {
-		device = filepath.Join(defaultMediaRoot, os.Getenv("USER"), "IPOD")
+// devicePath is the device mount point: --device, or the udisks default.
+func devicePath() string {
+	if syncDeviceOption != "" {
+		return syncDeviceOption
 	}
-	return syncTargets(os.Getenv("HOME"), device)
+	return filepath.Join(defaultMediaRoot, os.Getenv("USER"), "IPOD")
+}
+
+func defaultSyncTargets() (music, playlists syncTarget) {
+	return syncTargets(os.Getenv("HOME"), devicePath())
 }
 
 // runSync mirrors each target in order. A target that fails doesn't stop the
-// next one; all errors are returned together.
-func runSync(targets ...syncTarget) error {
+// next one; all errors are returned together. With --eject, the device is
+// ejected only if every target succeeded.
+func runSync(ctx context.Context, targets ...syncTarget) error {
 	prefix := ""
 	if syncDryRunOption {
 		prefix = "[dryrun] "
@@ -100,10 +112,40 @@ func runSync(targets ...syncTarget) error {
 		}
 		changed = changed || res.Copied+res.Deleted > 0
 	}
-	if !syncDryRunOption && changed {
-		fmt.Println("Device left mounted. Update the Rockbox database to pick up the changes.")
+	if err := errors.Join(errs...); err != nil {
+		if syncEjectOption && !syncDryRunOption {
+			fmt.Println("Not ejecting: sync had errors. Device left mounted.")
+		}
+		return err
 	}
-	return errors.Join(errs...)
+	return finishSync(ctx, changed)
+}
+
+// finishSync ejects the device when asked, or reminds that it is still
+// mounted.
+func finishSync(ctx context.Context, changed bool) error {
+	dev := devicePath()
+	switch {
+	case syncDryRunOption:
+		if syncEjectOption {
+			fmt.Printf("[dryrun] eject %s\n", dev)
+		}
+		return nil
+	case syncEjectOption:
+		ctx, cancel := context.WithTimeout(ctx, ejectTimeout)
+		defer cancel()
+		fmt.Printf("Ejecting %s...\n", dev)
+		if err := device.Eject(ctx, dev); err != nil {
+			return fmt.Errorf("eject: %w", err)
+		}
+		fmt.Println("Ejected; safe to unplug.")
+	case changed:
+		fmt.Println("Device left mounted.")
+	}
+	if changed {
+		fmt.Println("Update the Rockbox database to pick up the changes.")
+	}
+	return nil
 }
 
 var syncCmd = &cobra.Command{
@@ -114,7 +156,7 @@ Use the music or playlists subcommand to sync just one.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		music, playlists := defaultSyncTargets()
-		return runSync(music, playlists)
+		return runSync(cmd.Context(), music, playlists)
 	},
 }
 
@@ -129,7 +171,7 @@ var syncMusicCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		music, _ := defaultSyncTargets()
-		return runSync(music.withOverrides(syncMusicSourceOption, syncMusicDestOption))
+		return runSync(cmd.Context(), music.withOverrides(syncMusicSourceOption, syncMusicDestOption))
 	},
 }
 
@@ -144,7 +186,7 @@ var syncPlaylistsCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		_, playlists := defaultSyncTargets()
-		return runSync(playlists.withOverrides(syncPlaylistsSourceOption, syncPlaylistsDestOption))
+		return runSync(cmd.Context(), playlists.withOverrides(syncPlaylistsSourceOption, syncPlaylistsDestOption))
 	},
 }
 
@@ -153,6 +195,7 @@ func init() {
 	pf.StringVar(&syncDeviceOption, "device", "", "mount point of the device; must already exist (default /run/media/$USER/IPOD)")
 	pf.BoolVar(&syncDeleteOption, "delete", false, "remove destination files that are no longer in the source")
 	pf.BoolVarP(&syncDryRunOption, "dryrun", "r", false, "print what would change without writing")
+	pf.BoolVar(&syncEjectOption, "eject", false, "unmount and power off the device after a successful sync")
 
 	syncMusicCmd.Flags().StringVarP(&syncMusicSourceOption, "source", "s", "", "music library root (default $HOME/Music/Artists)")
 	syncMusicCmd.Flags().StringVarP(&syncMusicDestOption, "dest", "d", "", "destination folder; overrides --device (default <device>/Music/Artists)")

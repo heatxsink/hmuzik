@@ -50,6 +50,7 @@ Copy new and changed music and playlists to a mounted Rockbox iPod:
     $ hmuzik sync --delete             # both
     $ hmuzik sync music --delete       # just $HOME/Music/Artists
     $ hmuzik sync playlists --delete   # just $HOME/Music/Playlists
+    $ hmuzik sync --delete --eject     # both, then eject
 
 `sync music` mirrors `$HOME/Music/Artists` onto `<device>/Music/Artists` and
 `sync playlists` mirrors `$HOME/Music/Playlists` onto `<device>/Playlists`;
@@ -70,14 +71,16 @@ playlists created on the iPod; paths match case-insensitively, as on FAT. It
 refuses to run against the device root (anything containing `.rockbox` or
 `iPod_Control`). Hidden files are ignored on both sides, and `sync music` skips
 `cover.jpg` (copies already on the device are left alone, even with
-`--delete`). The device is never
-ejected. Update the Rockbox database afterwards to pick up the changes. Each
+`--delete`). The device stays
+mounted unless you pass `--eject`, which unmounts it and powers it off
+(`udisksctl`) after a fully successful sync; any error leaves it mounted. Update the Rockbox database afterwards to pick up the changes. Each
 summary line reports elapsed time and throughput.
 
 
 ## Layout
 
     cmd/                       cobra subcommands
+    internal/device/           eject via udisks
     internal/m3u/              m3u playlist generation
     internal/mirror/           incremental library-to-device copy
     internal/recentlyadded/    recently-added playlist builder
