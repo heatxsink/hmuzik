@@ -22,7 +22,19 @@ I've also added the ability to generate a m3u playlist from a cmus playlist.
 
 Organize a directory of audio files into `%Artist%/%Album%/`:
 
-    $ hmuzik organize -s /home/ngranado/Music/lz -d /home/ngranado/Music/lz/organized
+    $ hmuzik organize -r -s /home/ngranado/Music/lz -d /home/ngranado/Music/Artists   # dry run
+    $ hmuzik organize -s /home/ngranado/Music/lz -d /home/ngranado/Music/Artists
+
+Files are moved, not copied. The directory names come from the album artist
+(falling back to the artist), then the album, with characters like `/ : ? !`
+stripped out; anything missing a tag lands under `No Name`. Only `.flac`,
+`.mp3`, `.m4a` and `.aiff` files are touched. If a file with the same name is
+already at the destination, it gets overwritten. The source and destination
+have to be on the same filesystem (it's a rename). `-s/--source` and
+`-d/--destination` are both required and go after `organize`. Use
+`-r/--dryrun` to print the planned moves without making them. Organize into
+`$HOME/Music/Artists` and the new albums show up in `recently-added` and
+`sync music` without further flags.
 
 Convert a single cmus playlist to extended m3u:
 
@@ -75,6 +87,11 @@ refuses to run against the device root (anything containing `.rockbox` or
 mounted unless you pass `--eject`, which unmounts it and powers it off
 (`udisksctl`) after a fully successful sync; any error leaves it mounted. Update the Rockbox database afterwards to pick up the changes. Each
 summary line reports elapsed time and throughput.
+
+
+Print the build version (module version, VCS revision, commit time):
+
+    $ hmuzik version
 
 
 ## Layout
